@@ -9,9 +9,9 @@ import boto3
 from dotenv import load_dotenv
 load_dotenv()  
 
-
 st.set_page_config(layout="wide")
 
+from load_data import load_data
 
 # s3 = boto3.client("s3", 
 #                   region_name='us-west-2', 
@@ -30,32 +30,32 @@ st.set_page_config(layout="wide")
 #      df_list.append(obj_df)
 # df = pd.concat(df_list)
 
-df1 = pd.read_csv('data/Fort Collins Utilities EV Data June 2020 to June 2021.csv')
-df2 = pd.read_csv('data/Fort Collins Utilities EV Data June 25 2021 to July 20 2021.csv')
-df = pd.concat([df1, df2])
+# df1 = pd.read_csv('data/Fort Collins Utilities EV Data June 2020 to June 2021.csv')
+# df2 = pd.read_csv('data/Fort Collins Utilities EV Data June 25 2021 to July 20 2021.csv')
+# df = pd.concat([df1, df2])
 
-df.info()
+# df.info()
 
-df.rename(columns={'Session/Reservation Start Date': 'Date'}, inplace=True)
-df = df.dropna(how='all')
+# df.rename(columns={'Session/Reservation Start Date': 'Date'}, inplace=True)
+# df = df.dropna(how='all')
 
-df['Date'] = pd.to_datetime(df['Date'])
-df.set_index(df['Date'], inplace=True)
+# df['Date'] = pd.to_datetime(df['Date'])
+# df.set_index(df['Date'], inplace=True)
 
-df2 = df[['Energy (kWh)', 'Net Revenue']].resample('1D').sum().reset_index()
+# df2 = df[['Energy (kWh)', 'Net Revenue']].resample('1D').sum().reset_index()
 
-df2.set_index('Date', inplace=True)
-
-
-df2["Energy (kWh)_7D"] = df2['Energy (kWh)'].\
-                         transform(lambda x: x.rolling(7, min_periods=7, closed='both', center=True).median())
-df2["Net Revenue_7D"] = df2['Net Revenue'].\
-                         transform(lambda x: x.rolling(7, min_periods=7, closed='both', center=True).median())
-
-df2['Energy (kWh)_7D'] = df2['Energy (kWh)_7D'].interpolate(method='linear', limit_direction='both')
-df2['Net Revenue_7D'] = df2['Net Revenue_7D'].interpolate(method='linear', limit_direction='both')
+# df2.set_index('Date', inplace=True)
 
 
+# df2["Energy (kWh)_7D"] = df2['Energy (kWh)'].\
+#                          transform(lambda x: x.rolling(7, min_periods=7, closed='both', center=True).median())
+# df2["Net Revenue_7D"] = df2['Net Revenue'].\
+#                          transform(lambda x: x.rolling(7, min_periods=7, closed='both', center=True).median())
+
+# df2['Energy (kWh)_7D'] = df2['Energy (kWh)_7D'].interpolate(method='linear', limit_direction='both')
+# df2['Net Revenue_7D'] = df2['Net Revenue_7D'].interpolate(method='linear', limit_direction='both')
+
+df2 = load_data()
 
 def make_forecasting_df(dataframe, col):
     yy = "Energy (kWh)_7D" if col=="Demand" else "Net Revenue_7D"
