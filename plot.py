@@ -1,3 +1,4 @@
+from hashlib import pbkdf2_hmac
 import pandas as pd
 import numpy as np
 from bokeh.plotting import figure
@@ -7,7 +8,7 @@ from bokeh.layouts import row, gridplot
 import time
 from datetime import datetime as dt
 
-from bokeh.models import Span
+from bokeh.models import Span, Label
 
 def plot_forecast(data, df):
     df['ds'] = pd.to_datetime(df['ds'])
@@ -94,8 +95,13 @@ def plot_forecast(data, df):
                                 dimension='height', line_color='green',
                                 line_dash='dashed', line_width=3)
     p2.add_layout(goal_date)
+    goal = Label(x=time.mktime(dt(2023, 6, 1, 2, 0, 0).timetuple())*1000, 
+                y=65000,
+                text='GOAL',
+                text_font_size="30pt",
+                text_color="green")
 
-
+    p2.add_layout(goal)
 
     forecast_start_date = time.mktime(dt(2021, 7, 20, 2, 0, 0).timetuple())*1000
     forecast_start = Span(location=forecast_start_date,
