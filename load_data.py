@@ -1,5 +1,7 @@
 
 import pandas as pd
+import json
+from prophet.serialize import model_to_json, model_from_json
 
 import streamlit as st  # pylint: disable=import-error
 
@@ -30,7 +32,10 @@ def load_data():
     df2['Energy (kWh)_7D'] = df2['Energy (kWh)_7D'].interpolate(method='linear', limit_direction='both')
     df2['Net Revenue_7D'] = df2['Net Revenue_7D'].interpolate(method='linear', limit_direction='both')
 
-    return df2
+    with open('serialized_model.json', 'r') as fin:
+        model = model_from_json(json.load(fin))  # Load model
+
+    return df2, model
 
 
 

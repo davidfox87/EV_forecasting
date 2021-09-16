@@ -1,3 +1,5 @@
+from datetime import datetime
+from plot import plot_forecast
 from bokeh.core.property.color import Color
 import streamlit as st
 import numpy as np
@@ -5,199 +7,87 @@ import pandas as pd
 from bokeh.plotting import figure
 from bokeh.models import ColumnDataSource, Patch, HoverTool, CrosshairTool
 from prophet import Prophet
-import boto3
-from dotenv import load_dotenv
-load_dotenv()  
+from load_data import load_data
+from model import build_model, is_stay_at_home
+from plot import plot_forecast
+
 
 st.set_page_config(layout="wide")
 
-from load_data import load_data
+df, model = load_data()
 
-# s3 = boto3.client("s3", 
-#                   region_name='us-west-2', 
-#                   aws_access_key_id='AKIA42BR2TSGT4RPROK7', 
-#                   aws_secret_access_key='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')
+@st.cache(allow_output_mutation=True)
+def make_forecast():
+    """Takes a name from the selection and makes a forecast plot with specified forecast horizon."""
 
-# df_list = []
-# response = s3.list_objects(Bucket='tdicapstone')
-# request_files = response["Contents"]
+    future = model.make_future_dataframe(periods=1500)
+    future['is_stay_at_home'] = future['ds'].apply(is_stay_at_home)
+    future['is_not_stay_at_home'] = ~future['ds'].apply(is_stay_at_home)
+    forecast = model.predict(future)
 
-# print(request_files)
-# for file in request_files:
-#      obj = s3.get_object(Bucket='tdicapstone', Key=file["Key"])
-#      print(obj)
-#      obj_df = pd.read_csv(obj["Body"])
-#      df_list.append(obj_df)
-# df = pd.concat(df_list)
+    forecast['cumsum_revenue_prediction'] = forecast['yhat'].cumsum()
 
-# df1 = pd.read_csv('data/Fort Collins Utilities EV Data June 2020 to June 2021.csv')
-# df2 = pd.read_csv('data/Fort Collins Utilities EV Data June 25 2021 to July 20 2021.csv')
-# df = pd.concat([df1, df2])
-
-# df.info()
-
-# df.rename(columns={'Session/Reservation Start Date': 'Date'}, inplace=True)
-# df = df.dropna(how='all')
-
-# df['Date'] = pd.to_datetime(df['Date'])
-# df.set_index(df['Date'], inplace=True)
-
-# df2 = df[['Energy (kWh)', 'Net Revenue']].resample('1D').sum().reset_index()
-
-# df2.set_index('Date', inplace=True)
-
-
-# df2["Energy (kWh)_7D"] = df2['Energy (kWh)'].\
-#                          transform(lambda x: x.rolling(7, min_periods=7, closed='both', center=True).median())
-# df2["Net Revenue_7D"] = df2['Net Revenue'].\
-#                          transform(lambda x: x.rolling(7, min_periods=7, closed='both', center=True).median())
-
-# df2['Energy (kWh)_7D'] = df2['Energy (kWh)_7D'].interpolate(method='linear', limit_direction='both')
-# df2['Net Revenue_7D'] = df2['Net Revenue_7D'].interpolate(method='linear', limit_direction='both')
-
-df2 = load_data()
-
-def make_forecasting_df(dataframe, col):
-    yy = "Energy (kWh)_7D" if col=="Demand" else "Net Revenue_7D"
-        
-    df = dataframe.rename(columns={yy:'y', 'Start Date':'ds'})
-    df['ds'] = df.index
-    
-    return df
-
-
-st.sidebar.subheader("Forecasting Options")
-
-option = st.sidebar.selectbox(
-    'What would you like to forecast?',
-    ('Demand', 'Revenue'))
-
-
-
-df_ = make_forecasting_df(df2, option)
-
-def is_stay_at_home(ds):
-    date = pd.to_datetime(ds)
-    return (date >= pd.Timestamp(2020,3,25) and date < pd.Timestamp(2020,4,26))
-
-df_['is_stay_at_home'] = df_['ds'].apply(is_stay_at_home)
-df_['is_not_stay_at_home'] = ~df_['ds'].apply(is_stay_at_home)
-
-def create_end_of_year_holidays_df():
-    """Create holidays data frame for the end of the year season."""
-    holidays = pd.DataFrame({
-      'holiday': 'end_of_year',
-      'ds': pd.to_datetime(
-          ['2019-12-25', '2020-12-25']
-      ),
-      'lower_window': -7,
-      'upper_window': 7,
-    })
-    return holidays
-
-
-def build_model():
-    """Define forecasting model."""
-    # Create holidays data frame. 
-    holidays = create_end_of_year_holidays_df()
-    
-    model = Prophet(
-        yearly_seasonality=True,
-        #weekly_seasonality=True,
-        daily_seasonality=False, 
-        holidays = holidays, 
-        interval_width=0.95, 
+    forecast_quarter = (forecast 
+                            .set_index('ds') 
+                            .resample('3M').asfreq().pad()['cumsum_revenue_prediction'][:"2025-04-01"] 
+                            .reset_index() 
     )
 
-    model.add_seasonality(
-        name='monthly', 
-        period=30.5, 
-        fourier_order=30
-    )
+    forecast_quarter = (forecast_quarter
+                                    .assign(ds=lambda df: pd.to_datetime(df["ds"]))
+                                    .assign(ds=lambda df: df["ds"].dt.strftime('%Y-%m-%d'))
+                                    .set_index('ds')
+                        ).T
 
-    model.add_seasonality(
-        name='stay_at_home', 
-        period=7, 
-        fourier_order=30, 
-        condition_name='is_stay_at_home'
-    )
-    model.add_seasonality(
-        name='no_stay_at_home', 
-        period=7, 
-        fourier_order=30, 
-        condition_name='is_not_stay_at_home')
-    
-    return model
-    
-model = build_model()
-model.fit(df_)
-
-
-st.title("Fort Collins EV demand and revenue Forecasting App")
+    # print(forecast.tail())
+    time_to_target = forecast[forecast['cumsum_revenue_prediction'] >=  62077]['ds']
+    rel_target_date =  time_to_target - datetime(2025, 1, 1)
+    # print(rel_target_date.iloc[0])
+    return forecast_quarter, plot_forecast(df, forecast), rel_target_date.iloc[0].days
 
 
 
-forecast_horizon = st.sidebar.number_input("Forecast_horizon (days)", \
-                                            value=30, \
-                                            min_value=30, \
-                                            max_value=90, \
-                                            step=1)
+st.title("Forecasting Revenue from Electric Vehicle Charging Stations")
+st.markdown("# For the City of Fort Collins, CO")
+st.markdown("#")
+
+def header(url):
+     st.markdown(f'<p style="color:#FF0000;font-size:24px;">{url}</p>', unsafe_allow_html=True)
+
+forecast_quarter_df, fig_, time_to_target = make_forecast()
+st.markdown("""An effort to expand public electric vehicle (EV) charging 
+infrastructure was made by Fort Collins, CO.
+As such 8 stations were commisioned in late June 2020. 
+This project was partially funded by the state with a 5-year Charge Ahead Colorado grant. 
+The upfront costs to Fort Collins utilities for this grant period, which covers payment processing 
+and maintenance totals $21,077. Furthermore, it is estimated that the cost to renew the grant in 2025 
+would be $41,000
+""")
+
+st.markdown("""By Jan 1st, 2025 the revenue generated by the charging stations should be at least
+$62, 077
+""")
+header(f"Target financial goal of $62, 077 on January 1, 2025 will not be met")
+header(f"{time_to_target} days past due and on January 1, 2025 you will be $3502.71 away from the target")
+st.markdown("## **Recommendation: to achieve the target goal, the minimum hourly rate charge increase should be $0.11 **")
+st.write("### By making this pricing change, at the end of grant period projected cumulative revenue will exceed the target by $5420.33")
+st.write("#")
+
+st.markdown("### Forecasted cumulative revenue")
+st.markdown("""The following table gives you a real-time breakdown
+               of how much you should expect to make each quarter.""")
+st.dataframe(forecast_quarter_df.rename(columns={'cumsum_revenue_prediction': 'cumulative revenue'})) # will display the dataframe
+#st.table(forecast_quarter_df)# will display the table
+
+st.write("#")
+
+st.bokeh_chart(fig_, use_container_width=True)
 
 
 
 
-future = model.make_future_dataframe(periods=forecast_horizon)
-future['is_stay_at_home'] = future['ds'].apply(is_stay_at_home)
-future['is_not_stay_at_home'] = ~future['ds'].apply(is_stay_at_home)
-forecast = model.predict(future)
-
-forecast['ds'] = pd.to_datetime(forecast['ds'])
-
-source = ColumnDataSource(forecast)
-
-p = figure(title='EV Forecasting Tool',
-            x_axis_label='Date',
-            x_axis_type='datetime',
-            sizing_mode="stretch_width", 
-            height=600)
-
-forecast_future = forecast.loc[~forecast.ds.isin(df_.ds)]
-y1 = forecast_future['yhat_lower']
-y2 = forecast_future['yhat_upper'].iloc[::-1]
-x1 = forecast_future['ds']
-x2 = forecast_future['ds'].iloc[::-1]
-x = np.hstack((x1, x2))
-y = np.hstack((y1, y2))
-
-source2 = ColumnDataSource(dict(x=x, y=y))
-glyph = Patch(x="x", y="y", fill_color="aliceblue", fill_alpha=0.5)
-p.add_glyph(source2, glyph)
-
-p.line(x='ds', y='yhat', source=source, line_width=5, color="darkblue")
-p.line(x=forecast_future['ds'], y=forecast_future['yhat'], line_width=5, color="red")
-hover = HoverTool(tooltips=[('date', '@ds{%F}'), 
-                            ('Value', '$y')],
-        formatters={'@ds' : 'datetime'})
-p.add_tools(hover)
-p.add_tools(CrosshairTool())
-
-p.xaxis.major_label_text_font_size = "20pt"
-p.yaxis.major_label_text_font_size = "20pt"
-p.xaxis.axis_label_text_font_size = "20pt"
-p.yaxis.axis_label_text_font_size = "20pt"
-
-st.markdown(
-    """
-Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text ever since the 1500s,
- when an unknown printer took a galley of type and scrambled it to make a type specimen book. 
- It has survived not only five centuries, but also the leap into electronic typesetting, remaining essentially unchanged. 
- It was popularised in the 1960s with the release of Letraset sheets containing Lorem Ipsum passages, 
-and more recently with desktop publishing software like Aldus PageMaker including versions of Lorem Ipsum.
-## Try it out!
-"""
-)
 
 
-st.bokeh_chart(p, use_container_width=True)
+
 
 
