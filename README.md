@@ -31,7 +31,9 @@ The following algorithms were compared using walk-forward validation and reporti
 - XGBoost
 - fbProphet
 
+
 fbProphet was used as the final model as this modeling framework can take into account changes in trend and seasonality due to COVID-related factors (mask mandates, lockdown, etc). The approach achieved a 1-month MAPE of 10%. 
+
 
 **Web application:** The app deploys the ML model and provides forecasts of revenue and usage from 1-3 months aggregated over all 8 stations. This app serves as a prototype to guide financial planning and as a starting point to understand which stations should be prioritized if budget goals are not being met. Currently, it's deployed using streamlit's github sharing service.
 
