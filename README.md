@@ -19,7 +19,6 @@ Fort Collins received a support grant from the state but has to cover partial co
 I built a solution to forecast Electric Vehicle (EV) revenue across their 8 charging stations and forecast revenue each quarter up to 2025 (grant renewal date).
   
 **RESULT**
-
 Eventually this app will help in two ways:
 - determine if the city is meeting their financial target at the grant renewal date. The forecasting model will be evaluated at each quarter and potentially retrained with new data.
 - if not, the application will make a recommendation to change the hourly-rate for charging sessions so that Fort Collins reach their revenue goal by Jan 1, 2025.
