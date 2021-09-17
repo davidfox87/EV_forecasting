@@ -9,14 +9,17 @@ Consulting project for The Data Incubator (TDI) Data Science with the City of Fo
 ## Project description
 
 **CONTEXT**
+
 I took the initiative to personally reach out to the city of Fort Collins in Colorado because I was particularly interested in how small cities are managing their electic vehicle charging infrastructure during covid. I worked with them to build a data science solution to address their business problem.
 
 Fort Collins received a support grant from the state but has to cover partial costs for maintenance. They wanted me to find out if they are making enough money from the stations to recover expenditures.
 
 **ACTION**
+
 I built a solution to forecast Electric Vehicle (EV) revenue across their 8 charging stations and forecast revenue each quarter up to 2025 (grant renewal date).
   
 **RESULT**
+
 Eventually this app will help in two ways:
 - determine if the city is meeting their financial target at the grant renewal date. The forecasting model will be evaluated at each quarter and potentially retrained with new data.
 - if not, the application will make a recommendation to change the hourly-rate for charging sessions so that Fort Collins reach their revenue goal by Jan 1, 2025.
