@@ -1,4 +1,4 @@
-# EV charging demand and revenue forecasting for budget planning.
+# Electric Vehicle (EV) charging demand and revenue forecasting for budget planning.
 
 
 Modeling EV usage and revenue
