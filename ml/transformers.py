@@ -30,6 +30,14 @@ class DayofWeek(BaseEstimator, TransformerMixin):
     def transform(self, X):
         return np.stack([self.day_vector(d) for d in X.index.dayofweek])
 
+class Weekend(BaseEstimator, TransformerMixin):
+    
+    def fit(self, X, y=None):
+        return self
+    
+    def transform(self, X):
+        return np.expand_dims(((X.index.dayofweek > 4.)*1.0), axis=1)
+        
 
 class FourierTransformer(BaseEstimator, TransformerMixin):
     def __init__(self, period=10):
